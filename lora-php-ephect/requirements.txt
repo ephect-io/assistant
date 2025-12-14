@@ -1,0 +1,12 @@
+torch
+torchvision
+torchaudio
+transformers
+datasets
+accelerate
+peft
+bitsandbytes
+trl
+sentencepiece
+pyyaml
+tqdm

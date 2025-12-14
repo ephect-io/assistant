@@ -1,0 +1,4 @@
+lora_r: 16
+lora_alpha: 32
+r: 16
+target_modules:
