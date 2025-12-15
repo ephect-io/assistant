@@ -2,17 +2,108 @@
 
 ## Fine tuning
 
-```
+```bash
 dnf install -y kernel-tools
 cpupower frequency-set -g performance
 cpupower frequency-set -u 3.4GHz
+```
+
+## LLaMA.cpp Server Setup
+
+### Package Installation
+
+```bash
+dnf install -y gcc-c++ make cmake libcurl-devel ccache
+```
+
+```bash
+mkdir -p /opt/llm/
+cd /opt/llm/
+```
+```bash
+git clone https://github.com/ggerganov/llama.cpp
+cd llama.cpp
+cmake  -B build -DLLAMA_CUDA=OFF -DLLAMA_METAL=OFF -DLLAMA_OPENCL=OFF
+cmake --build build --config Server -j 8
+```
+
+### Model Preparation
+
+Download a compatible LLaMA model in GGML format and place it in the `models` directory. For example:
+
+### Python Client Setup
+
+```bash
+pip install huggingface_hub
+pip install requests
+```
+
+Login to Hugging Face if needed:
+
+```bash
+huggingface-cli login --token $(cat ../../../assets/assistant/hugging-face/token.txt)
+```
+
+Download the model:
+
+```bash
+huggingface-cli download Qwen/Qwen2.5-Coder-1.5B --local-dir /opt/llm/llama.cpp/models --local-dir-use-symlinks False
+```
+
+Convert the model to GGUF format:
+
+```bash
+python3 convert_hf_to_gguf.py   --outtype auto   --outfile ./models/qwen2_5-
+coder-1_5b-q4_0.gguf   ./models
+```
+
+### Running the Server
+
+```bash
+./build/bin/llama-server -m ./models/qwen2_5-coder-1_5b-q4_0.gguf
+``` 
+
+#### Test Request
+
+```bash
+curl -X POST http://localhost:8080/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-model-q4_0.bin",
+    "prompt": "Hello, how are you?",
+    "max_tokens": 50,
+    "temperature": 0.7
+  }'
+```
+#### Expected Response
+
+```bash
+{
+  "id": "cmpl-xxxxxxxxxxxx",
+  "object": "text_completion",
+  "created": 1633036800,
+  "model": "ggml-model-q4_0.bin",
+  "choices": [
+    {
+      "text": " I'm doing well, thank you! How can I assist you today?",
+      "index": 0,
+      "logprobs": null,
+      "finish_reason": "length"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 5,
+    "completion_tokens": 15,
+    "total_tokens": 20
+  }
+}
 ```
 
 ## Systemd service setup
 
 `/etc/systemd/system/llama-server.service`:
 
-```
+```conf
 [Unit]
 Description=Local LLM Inference Server
 After=network.target
@@ -48,7 +139,7 @@ WantedBy=multi-user.target
 
 ### Activate service
 
-```
+```bash
 systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable --now llama-server
@@ -57,64 +148,9 @@ systemctl status llama-server
 
 ### Test server
 
-```
+```bash
 curl http://127.0.0.1:8081/health
 ```
-
-
-## LLaMA.cpp Server Setup
-
-### Package Installation
-
-```
-dnf install -y gcc-c++ make cmake
-git clone https://github.com/ggerganov/llama.cpp
-cd llama.cpp
-make server
-```
-
-### RUN SERVER
-
-```
-./server -m ./models/ggml-model-q4_0.bin -p 8080
-``` 
-
-### TEST SERVER
-
-``` 
-curl -X POST http://localhost:8080/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "ggml-model-q4_0.bin",
-    "prompt": "Hello, how are you?",
-    "max_tokens": 50,
-    "temperature": 0.7
-  }'
-```
-### RESPONSE
-
-```
-{
-  "id": "cmpl-xxxxxxxxxxxx",
-  "object": "text_completion",
-  "created": 1633036800,
-  "model": "ggml-model-q4_0.bin",
-  "choices": [
-    {
-      "text": " I'm doing well, thank you! How can I assist you today?",
-      "index": 0,
-      "logprobs": null,
-      "finish_reason": "length"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 5,
-    "completion_tokens": 15,
-    "total_tokens": 20
-  }
-}
-```
-
 
 ## NOTES
 - Make sure to replace `./models/ggml-model-q4_0.bin` with  the path to your actual model file. 
