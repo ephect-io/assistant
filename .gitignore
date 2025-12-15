@@ -6,3 +6,4 @@ data/*
 outputs/*
 !outputs/.gitkeep
 ephect-framework/
+server/llama.cpp/
