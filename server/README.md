@@ -39,22 +39,23 @@ pip install requests
 ```
 
 Login to Hugging Face if needed:
-
+ 
 ```bash
-huggingface-cli login --token $(cat ../../../assets/assistant/hugging-face/token.txt)
+hf login --token $(cat ../../../assets/assistant/hugging-face/token.txt)
 ```
 
 Download the model:
 
+⚠️  Warning: 'huggingface-cli download' is deprecated. Use 'hf download' instead.
+
 ```bash
-huggingface-cli download Qwen/Qwen2.5-Coder-1.5B --local-dir /opt/llm/llama.cpp/models --local-dir-use-symlinks False
+hf download Qwen/Qwen2.5-Coder-1.5B --local-dir /opt/llm/hugging-face/models --local-dir-use-symlinks False
 ```
 
 Convert the model to GGUF format:
 
 ```bash
-python3 convert_hf_to_gguf.py   --outtype auto   --outfile ./models/qwen2_5-
-coder-1_5b-q4_0.gguf   ./models
+python3 convert_hf_to_gguf.py   --outtype auto   --outfile ./models/qwen2_5-coder-1_5b-q4_0.gguf   ../hugging-face/models/Qwen2.5-Coder-1.5B
 ```
 
 ### Running the Server
