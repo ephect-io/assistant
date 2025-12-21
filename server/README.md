@@ -10,28 +10,104 @@ cpupower frequency-set -u 3.4GHz
 
 ## LLaMA.cpp Server Setup
 
-### Package Installation
+### Distributions requirements
 
+`RHEL/CentOS/Fedora`:
 ```bash
-dnf install -y gcc-c++ make cmake libcurl-devel ccache
+sudo dnf install -y gcc-c++ make cmake libcurl-devel ccache
 ```
+
+`Ubuntu/Debian`:
+```bash
+sudo apt-get update && sudo apt-get install -y build-essential cmake ccache libcurl4-openssl-dev
+```
+
+### Getting llama.cpp source code
 
 ```bash
 mkdir -p /opt/llm/
 cd /opt/llm/
 ```
+
 ```bash
 git clone https://github.com/ggerganov/llama.cpp
 cd llama.cpp
-cmake  -B build -DLLAMA_CUDA=OFF -DLLAMA_METAL=OFF -DLLAMA_OPENCL=OFF
+```
+
+### Building the server
+
+#### Configure on CPU only:
+
+```bash
+cmake  -B build -DGGML_CUDA=OFF -DGGML_METAL=OFF -DGGML_OPENCL=OFF
+```
+
+#### Configure with CUDA support (WSL2 compatible):
+
+`RHEL/CentOS/Fedora`:
+```bash
+sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel10/x86_64/cuda-rhel10.repo
+sudo dnf clean all
+sudo dnf install -y cuda
+``` 
+
+`Ubuntu/Debian`:
+```bash
+sudo apt-get install -y nvidia-cuda-toolkit
+```
+
+```bash
+export CUDA_HOME=/usr/local/cuda
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+```
+
+Check the validity of the CUDA toolkit installation:
+
+```bash
+nvcc --version
+```
+
+then configure:
+
+```bash
+cmake  -B build -DGGML_CUDA=ON -DGGML_METAL=OFF -DGGML_OPENCL=OFF
+```
+
+#### Configure with Metal support (macOS):
+
+```bash
+cmake  -B build -DGGML_CUDA=OFF -DGGML_METAL=ON -DGGML_OPENCL=OFF
+```
+
+#### finally build:
+
+```bash
 cmake --build build --config Server -j 8
+```
+
+#### Troubleshooting
+
+`Ubuntu/Debian`:
+Downgrade GCC to version 10:
+
+```bash
+sudo apt-get install -y gcc-10 g++-10
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 60
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 60
+```
+
+export variables and restart from configure step:
+
+```bash
+export CXX=g++-10 
+export CC=gcc-10
+CMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-10 cmake -B build -DGGML_CUDA=ON -DGGML_METAL=OFF -DGGML_OPENCL=OFF -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/gcc-10
 ```
 
 ### Model Preparation
 
-Download a compatible LLaMA model in GGML format and place it in the `models` directory. For example:
-
-### Python Client Setup
+Download huggingface_hub and requests Python packages:
 
 ```bash
 pip install huggingface_hub
@@ -42,6 +118,8 @@ Login to Hugging Face if needed:
  
 ```bash
 hf login --token $(cat ../../../assets/assistant/hugging-face/token.txt)
+// older version
+hf auth login --token $(cat ../../../assets/assistant/hugging-face/token.txt)
 ```
 
 Download the model:
@@ -49,7 +127,7 @@ Download the model:
 ⚠️  Warning: 'huggingface-cli download' is deprecated. Use 'hf download' instead.
 
 ```bash
-hf download Qwen/Qwen2.5-Coder-1.5B --local-dir /opt/llm/hugging-face/models --local-dir-use-symlinks False
+hf download Qwen/Qwen2.5-Coder-1.5B --local-dir /opt/llm/hugging-face/models
 ```
 
 Convert the model to GGUF format:
@@ -76,6 +154,7 @@ curl -X POST http://localhost:8080/completions \
     "temperature": 0.7
   }'
 ```
+
 #### Expected Response
 
 ```bash
